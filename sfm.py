@@ -43,6 +43,32 @@ def drop_weak_cross_pairs(db, min_inliers):
     print(f"  cross-reel pairs: dropped {len(weak)} below {min_inliers} inliers, kept {kept}")
     con.close()
 
+def by_size(sparse):
+    """COLMAP numbers models in creation order, not size; every later stage reads sparse/0.
+    Renumber so 0 is the model with the most registered images. Returns the sizes."""
+    from .colmap_io import read_cameras_images
+    models = [p for p in sparse.iterdir() if (p / "images.bin").exists()]
+    size = {p: len(read_cameras_images(p)[3]) for p in models}
+    order = sorted(models, key=lambda p: -size[p])
+    tmp = [p.rename(p.with_name(f"_tmp{i}")) for i, p in enumerate(order)]
+    for i, p in enumerate(tmp): p.rename(sparse / str(i))
+    return [size[p] for p in order]
+
+def find_folds(model, jump=8.0):
+    """Split a model where the camera path stops progressing: a backward step, or a step more
+    than `jump` x the median. A relaxed mapper can register a weakly linked stretch in the wrong
+    place (ECB westbound frames 77+ were laid back over 0-76) - the model looks complete but
+    is folded. Returns lists of image names, one per consistently progressing piece."""
+    import numpy as np
+    from .colmap_io import read_cameras_images
+    _, _, _, poses = read_cameras_images(model); names = sorted(poses)
+    C = np.array([np.linalg.inv(poses[n])[:3, 3] for n in names])
+    axis = np.linalg.svd(C - C.mean(0))[2][0]; x = C @ axis
+    d = np.diff(x); d *= np.sign(np.median(d)); med = np.median(np.abs(d))
+    cuts = [i + 1 for i in range(len(d)) if d[i] < 0 or d[i] > jump * med]
+    bounds = [0, *cuts, len(names)]
+    return [names[a:b] for a, b in zip(bounds, bounds[1:]) if b > a]
+
 def main(cfg):
     need("colmap"); add_cuda_dlls(); s = cfg["sfm"]
     use_glomap = s["mapper"] == "glomap" or (s["mapper"] == "auto" and shutil.which("glomap"))
@@ -59,7 +85,8 @@ def main(cfg):
                "--ImageReader.single_camera", int(s["single_camera"])]
         if aliked:
             cmd += ["--FeatureExtraction.type", "ALIKED_N16ROT",
-                    "--AlikedExtraction.max_num_features", 4096]
+                    "--AlikedExtraction.max_num_features", s.get("aliked_max_features", 4096),
+                    "--AlikedExtraction.min_score", s.get("aliked_min_score", 0.2)]
         if (seg / "masks_colmap").exists():
             cmd += ["--ImageReader.mask_path", seg / "masks_colmap"]
         run(cmd)
@@ -84,7 +111,14 @@ def main(cfg):
                  "--image_path", seg / "images", "--output_path", sparse])
         else:
             run(["colmap", "mapper", "--database_path", db,
-                 "--image_path", seg / "images", "--output_path", sparse])
-        models = sorted(sparse.iterdir())
-        print(f"  {seg.name}: {len(models)} model(s). >1 means the reel broke into pieces; "
-              "model 0 is usually the largest.")
+                 "--image_path", seg / "images", "--output_path", sparse,
+                 *[a for k, v in s.get("mapper_options", {}).items() for a in (f"--Mapper.{k}", v)]])
+        sizes = by_size(sparse)
+        print(f"  {seg.name}: {len(sizes)} model(s), registered images {sizes}. "
+              ">1 means the reel broke into pieces; 0 is the largest.")
+        pieces = find_folds(sparse / "0")
+        import json
+        (seg / "colmap" / "pieces.json").write_text(json.dumps(pieces))
+        if len(pieces) > 1:
+            print(f"  WARNING {seg.name}: model 0 is folded into {len(pieces)} pieces "
+                  f"(frames {[(p[0], p[-1]) for p in pieces]}); see colmap/pieces.json")

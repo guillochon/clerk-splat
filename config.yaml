@@ -45,6 +45,13 @@ sky:
 sfm:
   camera_model: SIMPLE_RADIAL  # OPENCV has too many free params for 480p film scans
   features: aliked       # aliked (ALIKED+LightGlue, COLMAP>=4; needs CUDA 12 DLLs on PATH) | sift
+  aliked_max_features: 8192
+  aliked_min_score: 0.05 # default 0.2 left ~500 kps on sunny washed-out frames; ECB WB broke
+                         # into 4 models at fast stretches / a passing truck, 0.05 kept it whole
+  mapper_options:        # passed as --Mapper.<key>. Note: ECB WB still folds at frame 76->77
+                         # with or without these (sfm now flags folds in colmap/pieces.json)
+    abs_pose_min_num_inliers: 15
+    min_num_matches: 10
   single_camera: true    # one camera per reel
   matcher: sequential    # forward-driving footage
   overlap: 15

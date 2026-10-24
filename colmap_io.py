@@ -32,6 +32,50 @@ def read_points3d(sparse):
             f.read(8 * struct.unpack("<Q", f.read(8))[0]); xyz[i] = x, y, z
     return xyz
 
+def read_camera_params(sparse):
+    """cameras.bin of a single-camera model -> (model_id, W, H, params tuple)."""
+    with open(sparse / "cameras.bin", "rb") as f:
+        f.read(8); cid, model, W, H = struct.unpack("<iiQQ", f.read(24))
+        n = {0: 3, 1: 4, 2: 4, 3: 5, 4: 8}[model]
+        return model, W, H, struct.unpack(f"<{n}d", f.read(8 * n))
+
+def write_model(sparse, cameras, images, xyz, rgb):
+    """cameras: {id: (model_id, W, H, params)}; images: [(name, camera_id, world-to-cam 4x4)];
+    xyz/rgb: points. Writes cameras.bin/images.bin/points3D.bin with no 2D-3D tracks - enough
+    for splat trainers (they read poses and points), not for further COLMAP work."""
+    sparse.mkdir(parents=True, exist_ok=True)
+    with open(sparse / "cameras.bin", "wb") as f:
+        f.write(struct.pack("<Q", len(cameras)))
+        for cid, (model, W, H, p) in cameras.items():
+            f.write(struct.pack("<iiQQ", cid, model, W, H) + struct.pack(f"<{len(p)}d", *p))
+    with open(sparse / "images.bin", "wb") as f:
+        f.write(struct.pack("<Q", len(images)))
+        for iid, (name, cid, M) in enumerate(images, 1):
+            q = rot_to_quat(M[:3, :3])
+            f.write(struct.pack("<idddddddi", iid, *q, *M[:3, 3], cid) + name.encode() + b"\0")
+            f.write(struct.pack("<Q", 0))
+    with open(sparse / "points3D.bin", "wb") as f:
+        f.write(struct.pack("<Q", len(xyz)))
+        for i, (p, c) in enumerate(zip(xyz, rgb), 1):
+            f.write(struct.pack("<QdddBBBdQ", i, *p, *[int(v) for v in c], 0.0, 0))
+
+def rot_to_quat(R):
+    """Rotation matrix -> (qw, qx, qy, qz), COLMAP's order."""
+    t = np.trace(R)
+    if t > 0:
+        s = 2 * np.sqrt(t + 1); return (s / 4, (R[2, 1] - R[1, 2]) / s, (R[0, 2] - R[2, 0]) / s, (R[1, 0] - R[0, 1]) / s)
+    i = int(np.argmax(np.diag(R))); j, k = (i + 1) % 3, (i + 2) % 3
+    s = 2 * np.sqrt(1 + R[i, i] - R[j, j] - R[k, k]); q = np.empty(4)
+    q[0] = (R[k, j] - R[j, k]) / s; q[1 + i] = s / 4
+    q[1 + j] = (R[j, i] + R[i, j]) / s; q[1 + k] = (R[k, i] + R[i, k]) / s
+    return tuple(q)
+
+def transform_pose(M, s, Q, t):
+    """World-to-camera pose after the world moves by p' = s*Q@p + t (same image, new world)."""
+    out = np.eye(4); out[:3, :3] = M[:3, :3] @ Q.T
+    out[:3, 3] = s * M[:3, 3] - out[:3, :3] @ t
+    return out
+
 def road_planes(points, poses, step=1, smooth=9):
     """Per camera: road plane (n, d) in camera coords (x right, y down, z forward), n.X + d = 0.
     The road normal is shared (mean camera 'down' axis - the camera rides level on the car);

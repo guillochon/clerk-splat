@@ -111,6 +111,13 @@ Optional per-reel fields in `manifest.json`: `start`/`end` (seconds) cut a sub-c
   leaves the path. `render.py` (gsplat, run under WSL/Linux with CUDA) renders shifted
   views and a flythrough.
 
+## Merging opposite-direction passes (experimental: `crosspass/`)
+Aligning an eastbound and a westbound reel automatically is unsolved for the 480p footage:
+each pass sees mostly its own side of the street. `crosspass/` has the tooling (strip maps,
+BEV road mosaics, OCR/pole landmarks, registration) and a gate that refuses merges it can't
+verify. Design, results and what would unblock it: `docs/crosspass-design.md`. `sfm` now flags
+models that fold back on themselves (`colmap/pieces.json`).
+
 ## Tuning results (ECB eastbound, 0:42-1:09, 160 frames, ~0.4-0.6 km)
 Held-out PSNR on every 8th frame, excluding sky and cars, 15k steps unless noted:
 
