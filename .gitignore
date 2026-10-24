@@ -1,0 +1,12 @@
+# environments and downloaded binaries (see README install)
+.venv/
+.tools/
+__pycache__/
+*.pyc
+
+# pipeline outputs: videos, frames, COLMAP models, splats (multi-GB)
+workspace/
+
+# Brush GPU autotune cache, local editor/agent config
+target/
+.claude/
