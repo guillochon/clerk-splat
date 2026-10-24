@@ -1,0 +1,59 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ECB 1970 Splat</title>
+<style>
+  html,body{margin:0;height:100%;background:#111;color:#ddd;font:13px system-ui,sans-serif;overflow:hidden}
+  #hud{position:fixed;left:10px;top:10px;background:#000a;padding:8px 10px;border-radius:6px;z-index:2}
+  #hud button{margin:2px}
+</style>
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+ "@mkkellogg/gaussian-splats-3d":"https://cdn.jsdelivr.net/npm/@mkkellogg/gaussian-splats-3d@0.4.7/build/gaussian-splats-3d.module.js"}}
+</script>
+</head>
+<body>
+<div id="hud">El Cajon Blvd eastbound, 1970 — <span id="file"></span><br>
+  source film: City of San Diego, Office of the City Clerk Archives<br>
+  drag = orbit · right-drag = pan · scroll = zoom<br>
+  camera: <button data-i="0">frame 0</button><button data-i="1">frame 40</button><button data-i="2">frame 80</button><button data-i="3">overhead</button>
+</div>
+<script type="module">
+import * as THREE from "three";
+import * as GS from "@mkkellogg/gaussian-splats-3d";
+// ?ply=<url> picks the splat (.ply, .splat or .ksplat); default sits next to this page.
+// The camera presets below belong to the ECB eastbound segment's COLMAP frame.
+const file = new URLSearchParams(location.search).get("ply") || "ecb_eb_1970.ply";
+const format = file.endsWith(".ksplat") ? GS.SceneFormat.KSplat
+             : file.endsWith(".splat") ? GS.SceneFormat.Splat : GS.SceneFormat.Ply;
+document.getElementById("file").textContent = file;
+// Camera poses from the COLMAP model (COLMAP frame: +z forward along the street, -y up)
+const views = [
+  {pos:[0.729,0.333,-6.182], look:[0.698,0.207,-3.185]},
+  {pos:[0.354,0.171,-3.075], look:[0.331,-0.001,-0.08]},
+  {pos:[-0.007,-0.012,0.056], look:[-0.015,-0.171,3.052]},
+  {pos:[3.5,-6,-2], look:[0,0,0]},
+];
+const v0 = views[+(new URLSearchParams(location.search).get("view") || 0)];
+const viewer = new GS.Viewer({
+  cameraUp:[0,-1,0], initialCameraPosition:v0.pos, initialCameraLookAt:v0.look,
+  sharedMemoryForWorkers:false,
+});
+viewer.addSplatScene(file, {format, splatAlphaRemovalThreshold: 5, progressiveLoad: true})
+  .then(() => {
+    viewer.start();
+    // match the film camera (COLMAP f=840px on 366px height ≈ 25° vertical) plus a little margin
+    viewer.camera.fov = 32; viewer.camera.updateProjectionMatrix();
+    // pale 1970-film sky where no splat covers the view (matches render.py's --bg)
+    viewer.renderer.setClearColor(new THREE.Color(0.62, 0.72, 0.85), 1);
+  });
+window.viewer = viewer;
+document.querySelectorAll("#hud button").forEach(b => b.onclick = () => {
+  const v = views[+b.dataset.i];
+  viewer.camera.position.set(...v.pos); viewer.controls.target.set(...v.look); viewer.controls.update();
+});
+</script>
+</body>
+</html>

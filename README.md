@@ -33,8 +33,10 @@ pip install -r requirements.txt
 #   and put .tools/colmap/bin on PATH. (Distro packages are often COLMAP 3.x / no CUDA.)
 # Brush: unzip the brush-app release for your OS into .tools/brush (see train.brush_bin)
 ```
-View a splat: any .ply Gaussian viewer (SuperSplat, Brush itself), or the
-`viewer.html` next to the ECB EB splat (`python -m http.server` in that folder).
+View a splat: any .ply Gaussian viewer (SuperSplat, Brush itself), or `viewer/index.html`:
+copy the splat to `viewer/ecb_eb_1970.ply` (or pass `?ply=<url>`; `.splat`/`.ksplat` work
+too), run `python -m http.server -d viewer`, open http://localhost:8000/. Its camera
+presets match the ECB eastbound segment.
 
 Offline renders / flythrough video (Linux or WSL with a CUDA toolkit; gsplat compiles its
 kernels on first use):

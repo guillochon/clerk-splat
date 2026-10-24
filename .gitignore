@@ -10,3 +10,5 @@ workspace/
 # Brush GPU autotune cache, local editor/agent config
 target/
 .claude/
+# splat next to the viewer for local testing; not committed (92 MB) until hosting is decided
+viewer/*.ply
