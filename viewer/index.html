@@ -25,7 +25,7 @@ import * as THREE from "three";
 import * as GS from "@mkkellogg/gaussian-splats-3d";
 // ?ply=<url> picks the splat (.ply, .splat or .ksplat); default sits next to this page.
 // The camera presets below belong to the ECB eastbound segment's COLMAP frame.
-const file = new URLSearchParams(location.search).get("ply") || "ecb_eb_1970.ply";
+const file = new URLSearchParams(location.search).get("ply") || "ecb_eb_1970.ksplat";
 const format = file.endsWith(".ksplat") ? GS.SceneFormat.KSplat
              : file.endsWith(".splat") ? GS.SceneFormat.Splat : GS.SceneFormat.Ply;
 document.getElementById("file").textContent = file;

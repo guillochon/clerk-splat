@@ -10,5 +10,5 @@ workspace/
 # Brush GPU autotune cache, local editor/agent config
 target/
 .claude/
-# splat next to the viewer for local testing; not committed (92 MB) until hosting is decided
+# full-size .ply next to the viewer is for local testing only; the committed copy is the .ksplat
 viewer/*.ply
