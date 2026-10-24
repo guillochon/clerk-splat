@@ -5,6 +5,9 @@ car-mounted camera driving each street, digitized by the City Clerk's Archives a
 to YouTube and https://www.sandiego.gov/digitalarchives/film-audio/street-videos.
 Forward-moving, constant-lens footage is a decent fit for structure-from-motion.
 
+**Live viewer:** https://guillochon.github.io/clerk-splat/ — El Cajon Blvd eastbound, ~I-805 to
+40th St (deployed from `viewer/` by `.github/workflows/pages.yml`).
+
 ## Pipeline
 | stage | does |
 |---|---|
